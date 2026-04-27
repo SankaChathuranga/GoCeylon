@@ -18,6 +18,9 @@ export default function ActivityDetailPage() {
   const [activity, setActivity] = useState<Activity | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState(0);
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+  const [editReviewForm, setEditReviewForm] = useState({ rating: 5, comment: '' });
+  const [favMsg, setFavMsg] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -25,6 +28,43 @@ export default function ActivityDetailPage() {
     api.get<ApiResponse<Review[]>>(`/reviews/activity/${id}`).then(r => setReviews(r.data.data || [])).catch(() => {});
     api.get<ApiResponse<number>>(`/reviews/activity/${id}/rating`).then(r => setAvgRating(r.data.data || 0)).catch(() => {});
   }, [id]);
+
+  const handleAddToFavorites = async () => {
+    try {
+      await api.post('/favorites', { activityId: Number(id), favoriteType: 'ACTIVITY' });
+      setFavMsg('Added to favorites! ❤️');
+      setTimeout(() => setFavMsg(''), 3000);
+    } catch (err: any) {
+      setFavMsg(err.response?.data?.message || 'Already in favorites');
+      setTimeout(() => setFavMsg(''), 3000);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!window.confirm('Delete this review?')) return;
+    try {
+      await api.delete(`/reviews/${reviewId}`);
+      setReviews(reviews.filter((r) => r.id !== reviewId));
+    } catch {}
+  };
+
+  const startEditReview = (r: Review) => {
+    setEditingReviewId(r.id);
+    setEditReviewForm({ rating: r.rating, comment: r.comment || '' });
+  };
+
+  const submitEditReview = async (reviewId: number) => {
+    try {
+      await api.put(`/reviews/${reviewId}`, {
+        activityId: activity?.id,
+        rating: editReviewForm.rating,
+        comment: editReviewForm.comment,
+      });
+      setEditingReviewId(null);
+      const r = await api.get<ApiResponse<Review[]>>(`/reviews/activity/${activity?.id}`);
+      setReviews(r.data.data || []);
+    } catch {}
+  };
 
   if (!activity) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -87,13 +127,37 @@ export default function ActivityDetailPage() {
               ) : (
                 <div className="space-y-4">
                   {reviews.map(r => (
-                    <div key={r.id} className="p-4 rounded-xl bg-surface border border-white/5">
+                    <div key={r.id} className="p-4 rounded-xl bg-surface border border-white/5 relative group">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">{r.touristName}</span>
                         <span className="text-secondary">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
                       </div>
-                      {r.comment && <p className="text-text-secondary text-sm">{r.comment}</p>}
-                      <p className="text-xs text-text-secondary mt-2">{new Date(r.createdAt).toLocaleDateString()}</p>
+                      
+                      {editingReviewId === r.id ? (
+                        <div className="mt-3 space-y-3">
+                          <select value={editReviewForm.rating} onChange={(e) => setEditReviewForm({...editReviewForm, rating: Number(e.target.value)})} className="w-full px-3 py-2 text-sm rounded-lg bg-surface-light border border-white/10 outline-none text-white focus:border-primary-light">
+                            {[5,4,3,2,1].map(n => <option key={n} value={n}>{n} Stars</option>)}
+                          </select>
+                          <textarea value={editReviewForm.comment} onChange={(e) => setEditReviewForm({...editReviewForm, comment: e.target.value})} className="w-full px-3 py-2 text-sm rounded-lg bg-surface-light border border-white/10 outline-none text-white focus:border-primary-light resize-none" rows={3} />
+                          <div className="flex gap-2">
+                            <button onClick={() => submitEditReview(r.id)} className="px-4 py-1.5 text-xs font-medium rounded-md bg-primary text-white hover:bg-primary-light">Save</button>
+                            <button onClick={() => setEditingReviewId(null)} className="px-4 py-1.5 text-xs font-medium rounded-md border border-white/10 text-white hover:bg-white/5">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {r.comment && <p className="text-text-secondary text-sm">{r.comment}</p>}
+                          <div className="flex justify-between items-center mt-2 text-xs text-text-secondary">
+                            <span>{new Date(r.createdAt).toLocaleDateString()}</span>
+                            {user?.userId === r.touristId && (
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                <button onClick={() => startEditReview(r)} className="hover:text-primary-light">Edit</button>
+                                <button onClick={() => handleDeleteReview(r.id)} className="hover:text-danger">Delete</button>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -105,23 +169,32 @@ export default function ActivityDetailPage() {
           <div>
             <div className="sticky top-24 p-6 rounded-2xl bg-surface-light border border-white/5 space-y-4">
               <div className="text-3xl font-bold text-secondary">${activity.price}<span className="text-base text-text-secondary font-normal"> / person</span></div>
-              {isAuthenticated ? (
-                <Link to={`/book/${activity.id}`}
-                  className="block w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-light text-white font-semibold text-center
-                           hover:shadow-lg hover:shadow-primary/25 transition-all">
-                  Book Now
-                </Link>
-              ) : (
-                <Link to="/login"
-                  className="block w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-light text-white font-semibold text-center
-                           hover:shadow-lg hover:shadow-primary/25 transition-all">
-                  Sign in to Book
-                </Link>
+              {user?.role !== 'PROVIDER' && (
+                isAuthenticated ? (
+                  <Link to={`/book/${activity.id}`}
+                    className="block w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-light text-white font-semibold text-center
+                             hover:shadow-lg hover:shadow-primary/25 transition-all">
+                    Book Now
+                  </Link>
+                ) : (
+                  <Link to="/login"
+                    className="block w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-light text-white font-semibold text-center
+                             hover:shadow-lg hover:shadow-primary/25 transition-all">
+                    Sign in to Book
+                  </Link>
+                )
               )}
               <Link to={`/discover?lat=${activity.latitude}&lng=${activity.longitude}`}
                 className="block w-full py-3 rounded-xl border border-white/10 text-text-secondary text-center hover:text-white hover:border-white/20 transition-all">
                 View on Map
               </Link>
+              {isAuthenticated && (
+                <button onClick={handleAddToFavorites}
+                  className="block w-full py-3 rounded-xl border border-danger/20 text-danger text-center hover:bg-danger/10 transition-all">
+                  ❤️ Add to Favorites
+                </button>
+              )}
+              {favMsg && <p className="text-sm text-center text-primary-light animate-pulse mt-2">{favMsg}</p>}
             </div>
           </div>
         </div>

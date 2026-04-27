@@ -41,7 +41,7 @@ export default function EventsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map(e => (
-              <div key={e.id}
+              <Link key={e.id} to={`/events/${e.id}`}
                 className="group rounded-2xl bg-surface-card border border-white/5 overflow-hidden hover:border-secondary/30
                          transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-secondary/10">
                 <div className="h-40 bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative">
@@ -64,7 +64,7 @@ export default function EventsPage() {
                     {e.price != null && <span className="text-secondary font-bold text-base">${e.price}</span>}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

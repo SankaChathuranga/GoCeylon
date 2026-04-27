@@ -34,8 +34,16 @@ export default function Navbar() {
             {isAuthenticated && (
               <>
                 <NavLink to="/bookings">My Bookings</NavLink>
+                <NavLink to="/favorites">Favorites</NavLink>
+                {user?.role === 'TOURIST' && (
+                  <NavLink to="/transactions">Transactions</NavLink>
+                )}
                 {user?.role === 'PROVIDER' && (
-                  <NavLink to="/create-listing">Create Listing</NavLink>
+                  <>
+                    <NavLink to="/my-listings">My Listings</NavLink>
+                    <NavLink to="/create-listing">Create Listing</NavLink>
+                    <NavLink to="/earnings">Earnings</NavLink>
+                  </>
                 )}
                 {user?.role === 'ADMIN' && (
                   <NavLink to="/admin">Admin Panel</NavLink>
@@ -98,9 +106,17 @@ export default function Navbar() {
             {isAuthenticated && (
               <>
                 <MobileLink to="/bookings" onClick={() => setMenuOpen(false)}>My Bookings</MobileLink>
+                <MobileLink to="/favorites" onClick={() => setMenuOpen(false)}>Favorites</MobileLink>
+                {user?.role === 'TOURIST' && (
+                  <MobileLink to="/transactions" onClick={() => setMenuOpen(false)}>Transactions</MobileLink>
+                )}
                 <MobileLink to="/profile" onClick={() => setMenuOpen(false)}>Profile</MobileLink>
                 {user?.role === 'PROVIDER' && (
-                  <MobileLink to="/create-listing" onClick={() => setMenuOpen(false)}>Create Listing</MobileLink>
+                  <>
+                    <MobileLink to="/my-listings" onClick={() => setMenuOpen(false)}>My Listings</MobileLink>
+                    <MobileLink to="/create-listing" onClick={() => setMenuOpen(false)}>Create Listing</MobileLink>
+                    <MobileLink to="/earnings" onClick={() => setMenuOpen(false)}>Earnings</MobileLink>
+                  </>
                 )}
                 {user?.role === 'ADMIN' && (
                   <MobileLink to="/admin" onClick={() => setMenuOpen(false)}>Admin Panel</MobileLink>

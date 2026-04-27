@@ -20,7 +20,20 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (form.firstName.trim().length < 2) { setError('First name must be at least 2 characters'); return; }
+    if (form.lastName.trim().length < 2) { setError('Last name must be at least 2 characters'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Please enter a valid email address with a domain (e.g. user@gmail.com)'); return; }
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    
+    if (form.role === 'PROVIDER' && !form.phone) {
+      setError('Phone number is required for Providers');
+      return;
+    }
+    if (form.phone && !/^07\d{8}$/.test(form.phone)) {
+      setError('Phone number must be exactly 10 digits and start with 07');
+      return;
+    }
     setLoading(true);
     try {
       await register(form);
@@ -110,12 +123,12 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Phone (Optional)</label>
-            <input id="register-phone" type="tel" value={form.phone}
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Phone {form.role === 'PROVIDER' ? '*' : '(Optional)'}</label>
+            <input id="register-phone" type="tel" value={form.phone} required={form.role === 'PROVIDER'}
               onChange={e => setForm({ ...form, phone: e.target.value })}
               className="w-full px-4 py-2.5 rounded-lg bg-surface border border-white/10 text-white outline-none
                        focus:border-primary-light focus:ring-1 focus:ring-primary-light/50 transition-all"
-              placeholder="+94 7X XXX XXXX" />
+              placeholder="07X XXX XXXX" />
           </div>
 
           <button id="register-submit" type="submit" disabled={loading}

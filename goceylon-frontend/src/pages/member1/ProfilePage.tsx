@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import { User, ApiResponse } from '../../types';
@@ -10,7 +11,8 @@ import { User, ApiResponse } from '../../types';
  * ============================================
  */
 export default function ProfilePage() {
-  const { user, fetchProfile, userProfile } = useAuth();
+  const { user, fetchProfile, userProfile, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<User | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', phone: '', bio: '' });
@@ -58,6 +60,18 @@ export default function ProfilePage() {
       setPwForm({ currentPassword: '', newPassword: '' });
     } catch (err: any) {
       setPwMsg(err.response?.data?.message || 'Password change failed');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!profile) return;
+    if (!window.confirm('Are you strictly sure you want to deactivate your account? This cannot be undone.')) return;
+    try {
+      await api.delete(`/users/${profile.id}`);
+      logout();
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete account');
     }
   };
 
@@ -170,6 +184,16 @@ export default function ProfilePage() {
               Update Password
             </button>
           </form>
+        </div>
+
+        {/* Delete Account */}
+        <div className="p-8 rounded-2xl bg-danger/5 border border-danger/10">
+          <h3 className="text-lg font-semibold text-danger mb-2">Danger Zone</h3>
+          <p className="text-sm text-text-secondary mb-4">Once you delete your account, there is no going back. Please be certain.</p>
+          <button onClick={handleDeleteAccount}
+            className="px-6 py-2 rounded-lg bg-danger/10 text-danger font-medium hover:bg-danger/20 transition-all border border-danger/20">
+            Delete Account
+          </button>
         </div>
       </div>
     </div>

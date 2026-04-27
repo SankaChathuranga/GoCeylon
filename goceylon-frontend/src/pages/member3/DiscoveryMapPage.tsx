@@ -2,8 +2,9 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import api from '../../api/axios';
-import { NearbyActivity, ApiResponse, CATEGORY_LABELS } from '../../types';
+import { NearbyActivity, ApiResponse, CATEGORY_LABELS, SearchPreference, CATEGORIES } from '../../types';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -25,6 +26,14 @@ export default function DiscoveryMapPage() {
   const [lng, setLng] = useState(searchParams.get('lng') || '80.7718');
   const [radius, setRadius] = useState('50');
   const [selectedActivity, setSelectedActivity] = useState<NearbyActivity | null>(null);
+  const { isAuthenticated } = useAuth();
+  const [favMsg, setFavMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Preferences State
+  const [showSettings, setShowSettings] = useState(false);
+  const [prefs, setPrefs] = useState<SearchPreference>({});
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   // Initialize map
   useEffect(() => {
@@ -135,15 +144,50 @@ export default function DiscoveryMapPage() {
     }
   }, [lat, lng]);
 
-  // Initial search
-  useEffect(() => { search(); }, []);
+  // Initial search and preferences load
+  useEffect(() => {
+    if (isAuthenticated) {
+      api.get<ApiResponse<SearchPreference>>('/preferences').then(r => {
+        const p = r.data.data;
+        setPrefs(p);
+        if (p.maxDistanceKm) setRadius(p.maxDistanceKm.toString());
+      }).catch(() => {});
+    }
+    search(); 
+  }, [isAuthenticated]);
 
   const search = () => {
+    const targetLat = parseFloat(lat);
+    const targetLng = parseFloat(lng);
+    const targetRadius = parseFloat(radius);
+
+    if (isNaN(targetLat) || targetLat < -90 || targetLat > 90) {
+      setErrorMsg('Latitude must be between -90 and 90.');
+      return;
+    }
+    if (isNaN(targetLng) || targetLng < -180 || targetLng > 180) {
+      setErrorMsg('Longitude must be between -180 and 180.');
+      return;
+    }
+    if (isNaN(targetRadius) || targetRadius < 1 || targetRadius > 500) {
+      setErrorMsg('Radius must be between 1 and 500 km.');
+      return;
+    }
+    setErrorMsg('');
+
     setLoading(true);
     setSelectedActivity(null);
-    api.get<ApiResponse<NearbyActivity[]>>(`/discovery/nearby?lat=${lat}&lng=${lng}&radius=${radius}`)
+    api.get<ApiResponse<NearbyActivity[]>>(`/discovery/nearby?lat=${targetLat}&lng=${targetLng}&radius=${targetRadius}`)
       .then(r => {
-        const data = r.data.data || [];
+        let data = r.data.data || [];
+        // Apply frontend filtering based on preferences
+        if (prefs.maxPrice) data = data.filter(a => a.price <= prefs.maxPrice!);
+        if (prefs.minPrice) data = data.filter(a => a.price >= prefs.minPrice!);
+        if (prefs.preferredCategories) {
+          const cats = prefs.preferredCategories.split(',');
+          data = data.filter(a => cats.includes(a.category));
+        }
+
         setActivities(data);
         updateMarkers(data);
       })
@@ -160,6 +204,30 @@ export default function DiscoveryMapPage() {
     }
   };
 
+  const handleAddToFavorites = async (e: React.MouseEvent, activityId: number) => {
+    e.stopPropagation();
+    try {
+      await api.post('/favorites', { activityId, favoriteType: 'ACTIVITY' });
+      setFavMsg('Added to favorites! ❤️');
+      setTimeout(() => setFavMsg(''), 3000);
+    } catch (err: any) {
+      setFavMsg(err.response?.data?.message || 'Already in favorites');
+      setTimeout(() => setFavMsg(''), 3000);
+    }
+  };
+
+  const handleSavePrefs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPrefs(true);
+    try {
+      const payload = { ...prefs, maxDistanceKm: Number(radius) };
+      await api.put('/preferences', payload);
+      setShowSettings(false);
+      search();
+    } catch {}
+    setSavingPrefs(false);
+  };
+
   return (
     <div className="min-h-screen pt-24 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
@@ -170,31 +238,35 @@ export default function DiscoveryMapPage() {
 
         {/* Search Panel */}
         <div className="p-6 rounded-2xl bg-surface-light border border-white/5 mb-8">
+          {errorMsg && <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">{errorMsg}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">Latitude</label>
-              <input type="number" step="any" value={lat} onChange={e => setLat(e.target.value)}
+              <input type="text" value={lat} onChange={e => setLat(e.target.value.replace(/[^\d.-]/g, ''))}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:border-primary-light transition-all" />
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">Longitude</label>
-              <input type="number" step="any" value={lng} onChange={e => setLng(e.target.value)}
+              <input type="text" value={lng} onChange={e => setLng(e.target.value.replace(/[^\d.-]/g, ''))}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:border-primary-light transition-all" />
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">Radius (km)</label>
-              <input type="number" min="1" max="500" value={radius} onChange={e => setRadius(e.target.value)}
+              <input type="text" value={radius} onChange={e => setRadius(e.target.value.replace(/[^\d]/g, ''))}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:border-primary-light transition-all" />
             </div>
             <div className="flex items-end gap-2">
-              <button onClick={search}
-                className="flex-1 py-2 rounded-lg bg-gradient-to-r from-primary to-primary-light text-white font-medium text-sm hover:shadow-lg transition-all">
+              <button onClick={search} className="flex-1 py-2 rounded-lg bg-gradient-to-r from-primary to-primary-light text-white font-medium text-sm hover:shadow-lg transition-all">
                 Search
               </button>
-              <button onClick={detectLocation}
-                className="px-3 py-2 rounded-lg border border-white/10 text-text-secondary hover:text-white text-sm transition-all" title="Use my location">
+              <button onClick={detectLocation} className="px-3 py-2 rounded-lg border border-white/10 text-text-secondary hover:text-white text-sm transition-all" title="Use my location">
                 📍
               </button>
+              {isAuthenticated && (
+                <button onClick={() => setShowSettings(true)} className="px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm hover:border-primary-light transition-all" title="Map Settings">
+                  ⚙️
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -226,9 +298,15 @@ export default function DiscoveryMapPage() {
                 <p className="text-text-secondary text-sm line-clamp-2">{selectedActivity.description}</p>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-text-secondary">📍 {selectedActivity.distance} km</span>
-                  <Link to={`/activities/${selectedActivity.id}`}
-                    className="text-xs text-primary-light hover:underline font-medium">View Details →</Link>
+                  <div className="flex items-center gap-3">
+                    {isAuthenticated && (
+                       <button onClick={(e) => handleAddToFavorites(e, selectedActivity.id)} className="text-xs text-danger hover:underline font-medium">❤️ Save</button>
+                    )}
+                    <Link to={`/activities/${selectedActivity.id}`}
+                      className="text-xs text-primary-light hover:underline font-medium">View Details →</Link>
+                  </div>
                 </div>
+                {favMsg && <p className="text-xs text-danger mt-2 animate-pulse">{favMsg}</p>}
               </div>
             )}
 
@@ -274,6 +352,54 @@ export default function DiscoveryMapPage() {
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-surface border border-white/10 rounded-2xl w-full max-w-md p-6 relative">
+            <h2 className="text-xl font-bold mb-4">⚙️ Search Preferences</h2>
+            <p className="text-sm text-text-secondary mb-6">Configure your default map filters and search radius.</p>
+            
+            <form onSubmit={handleSavePrefs} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">Max Price ($)</label>
+                <input type="number" value={prefs.maxPrice || ''} onChange={e => setPrefs({...prefs, maxPrice: e.target.value ? Number(e.target.value) : undefined})}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-light border border-white/10 text-white outline-none focus:border-primary-light" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-2">Preferred Categories</label>
+                <div className="grid grid-cols-2 gap-2 h-40 overflow-y-auto pr-2 rounded-lg border border-white/10 p-2 bg-surface-light">
+                  {CATEGORIES.map(c => {
+                    const activeCats = prefs.preferredCategories ? prefs.preferredCategories.split(',') : [];
+                    const isActive = activeCats.includes(c);
+                    return (
+                      <label key={c} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white/5 p-1.5 rounded">
+                        <input type="checkbox" checked={isActive} onChange={(e) => {
+                          let newCats = [...activeCats];
+                          if (e.target.checked) newCats.push(c);
+                          else newCats = newCats.filter(cat => cat !== c);
+                          setPrefs({...prefs, preferredCategories: newCats.join(',')});
+                        }} className="rounded border-white/20 bg-surface text-primary" />
+                        <span className="truncate">{CATEGORY_LABELS[c] || c}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-white/5">
+                <button type="submit" disabled={savingPrefs} className="flex-1 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light disabled:opacity-50">
+                  {savingPrefs ? 'Saving...' : 'Save Preferences'}
+                </button>
+                <button type="button" onClick={() => setShowSettings(false)} className="px-5 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-white">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -125,12 +125,14 @@ export default function FavoritesPage() {
                   <div key={it.id} className="p-5 rounded-2xl bg-surface-light border border-white/5">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-semibold text-lg">{it.title}</h3>
-                        {it.description && <p className="text-text-secondary text-sm mt-1">{it.description}</p>}
-                        <div className="flex gap-4 mt-2 text-xs text-text-secondary">
-                          {it.startDate && <span>📅 {it.startDate} → {it.endDate}</span>}
-                          <span>{it.items.length} items</span>
-                        </div>
+                        <Link to={`/itineraries/${it.id}`} className="block group">
+                          <h3 className="font-semibold text-lg group-hover:text-primary-light transition-colors">{it.title}</h3>
+                          {it.description && <p className="text-text-secondary text-sm mt-1">{it.description}</p>}
+                          <div className="flex gap-4 mt-2 text-xs text-text-secondary">
+                            {it.startDate && <span>📅 {it.startDate} → {it.endDate}</span>}
+                            <span>{it.items.length} items</span>
+                          </div>
+                        </Link>
                       </div>
                       <button onClick={() => deleteItinerary(it.id)} className="text-danger hover:text-danger/80 text-sm">Delete</button>
                     </div>

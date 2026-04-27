@@ -88,6 +88,11 @@ export default function CreateListingPage() {
             <textarea required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4} className={inputClass + ' resize-none'} placeholder="Describe your experience in detail (min 10 characters)" />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">Image URL</label>
+            <input type="url" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} className={inputClass} placeholder="https://example.com/image.jpg" />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Category *</label>
@@ -144,11 +149,11 @@ export default function CreateListingPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Latitude *</label>
-              <input type="number" step="any" required value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} className={inputClass} />
+              <input type="text" required value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value.replace(/[^\d.-]/g, '') })} className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Longitude *</label>
-              <input type="number" step="any" required value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} className={inputClass} />
+              <input type="text" required value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value.replace(/[^\d.-]/g, '') })} className={inputClass} />
             </div>
           </div>
 

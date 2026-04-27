@@ -29,6 +29,31 @@ export default function PaymentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setLoading(true);
+
+    if (form.paymentMethod === 'CREDIT_CARD' || form.paymentMethod === 'DEBIT_CARD') {
+      const cardClean = form.cardNumber.replace(/\s+/g, '');
+      if (!/^\d{16}$/.test(cardClean)) {
+        setError('Card number must be 16 digits'); //validations
+        setLoading(false);
+        return;
+      }
+      if (form.cardHolderName.trim().length < 3) {
+        setError('Card holder name must be at least 3 characters');
+        setLoading(false);
+        return;
+      }
+      if (!/^(0[1-9]|1[0-2])\/?([0-9]{2})$/.test(form.expiryDate)) {
+        setError('Expiry date must be in MM/YY format');
+        setLoading(false);
+        return;
+      }
+      if (!/^\d{3,4}$/.test(form.cvv)) {
+        setError('CVV must be 3 or 4 digits');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const res = await api.post<ApiResponse<Payment>>('/payments', {
         bookingId: parseInt(bookingId!),
@@ -74,11 +99,11 @@ export default function PaymentPage() {
         <p className="text-text-secondary mb-8">Complete your booking for {booking.activityTitle}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <form onSubmit={handleSubmit} className="md:col-span-2 p-6 rounded-2xl bg-surface-light border border-white/5 space-y-5">
+          <form onSubmit={handleSubmit} autoComplete="off" className="md:col-span-2 p-6 rounded-2xl bg-surface-light border border-white/5 space-y-5">
             {error && <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm">{error}</div>}
 
-            <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20 text-secondary text-sm">
-              ⚡ Mock Payment System – No real charges
+            <div >
+              
             </div>
 
             <div>
@@ -93,20 +118,20 @@ export default function PaymentPage() {
 
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Card Number</label>
-              <input type="text" value={form.cardNumber} onChange={e => setForm({ ...form, cardNumber: e.target.value })} className={inputClass} placeholder="4242 4242 4242 4242" />
+              <input type="text" value={form.cardNumber} onChange={e => setForm({ ...form, cardNumber: e.target.value })} className={inputClass} placeholder="4242 4242 4242 4242" autoComplete="off" />
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Card Holder</label>
-              <input type="text" value={form.cardHolderName} onChange={e => setForm({ ...form, cardHolderName: e.target.value })} className={inputClass} placeholder="John Doe" />
+              <input type="text" value={form.cardHolderName} onChange={e => setForm({ ...form, cardHolderName: e.target.value })} className={inputClass} placeholder="John Doe" autoComplete="off" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1.5">Expiry</label>
-                <input type="text" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className={inputClass} placeholder="MM/YY" />
+                <input type="text" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className={inputClass} placeholder="MM/YY" autoComplete="off" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1.5">CVV</label>
-                <input type="text" value={form.cvv} onChange={e => setForm({ ...form, cvv: e.target.value })} className={inputClass} placeholder="123" />
+                <input type="text" value={form.cvv} onChange={e => setForm({ ...form, cvv: e.target.value })} className={inputClass} placeholder="123" autoComplete="off" />
               </div>
             </div>
 
